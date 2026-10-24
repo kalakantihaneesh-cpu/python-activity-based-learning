@@ -1,0 +1,108 @@
+from dataclasses import dataclass
+
+# Example tariff settings; replace them with your electricity provider's rates.
+SLABS = [
+    (100, 1.50),       # First 100 units: 1.50 per unit
+    (200, 2.50),       # Next 200 units: 2.50 per unit
+    (float("inf"), 4), # Remaining units: 4.00 per unit
+]
+
+FIXED_CHARGE = 50.00
+SURCHARGE_RATE = 0.05       # 5% of energy charge
+REBATE_RATE = 0.10          # 10% of energy charge
+REBATE_USAGE_LIMIT = 100    # Rebate applies at or below this usage
+UNUSUAL_INCREASE_PERCENT = 50
+
+
+@dataclass
+class MonthlyUsage:
+    month: str
+    units: float
+
+
+def calculate_energy_charge(units: float) -> float:
+    if units < 0:
+        raise ValueError("Electricity usage cannot be negative.")
+
+    charge = 0.0
+    previous_limit = 0.0
+
+    for limit, rate in SLABS:
+        slab_units = min(units, limit - previous_limit)
+        charge += slab_units * rate
+        units -= slab_units
+        previous_limit = limit
+
+        if units <= 0:
+            break
+
+    return charge
+
+
+def calculate_bill(units: float) -> dict[str, float]:
+    energy_charge = calculate_energy_charge(units)
+    surcharge = energy_charge * SURCHARGE_RATE
+    rebate = (
+        energy_charge * REBATE_RATE
+        if units <= REBATE_USAGE_LIMIT
+        else 0.0
+    )
+    total = energy_charge + FIXED_CHARGE + surcharge - rebate
+
+    return {
+        "energy_charge": round(energy_charge, 2),
+        "fixed_charge": round(FIXED_CHARGE, 2),
+        "surcharge": round(surcharge, 2),
+        "rebate": round(rebate, 2),
+        "total": round(total, 2),
+    }
+
+
+def compare_months(
+    history: list[MonthlyUsage],
+    threshold_percent: float = UNUSUAL_INCREASE_PERCENT,
+) -> list[dict]:
+    results = []
+    previous_total = None
+
+    for entry in history:
+        bill = calculate_bill(entry.units)
+        change_percent = None
+
+        if previous_total is not None and previous_total > 0:
+            change_percent = (bill["total"] - previous_total) / previous_total * 100
+
+        results.append({
+            "month": entry.month,
+            "units": entry.units,
+            **bill,
+            "change_percent": (
+                round(change_percent, 1) if change_percent is not None else None
+            ),
+            "unusual_increase": (
+                change_percent is not None and change_percent >= threshold_percent
+            ),
+        })
+        previous_total = bill["total"]
+
+    return results
+
+
+if __name__ == "__main__":
+    monthly_usage = [
+        MonthlyUsage("January", 90),
+        MonthlyUsage("February", 105),
+        MonthlyUsage("March", 260),
+        MonthlyUsage("April", 410),
+    ]
+
+    for result in compare_months(monthly_usage):
+        change = result["change_percent"]
+        change_text = f"{change:+.1f}%" if change is not None else "—"
+        flag = "  ** Unusual increase **" if result["unusual_increase"] else ""
+
+        print(
+            f"{result['month']}: {result['units']} units, "
+            f"bill = {result['total']:.2f}, "
+            f"change = {change_text}{flag}"
+        )
