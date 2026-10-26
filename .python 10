@@ -1,0 +1,35 @@
+import math
+
+# Replace these example amounts with your own
+venue = 500
+equipment = 200
+transport = 150
+catering_per_person = 20
+certificate_per_person = 3
+sponsorship = 300
+registration_fee = 25
+
+fixed_costs = venue + equipment + transport
+variable_cost_per_person = catering_per_person + certificate_per_person
+
+# Contribution from each registration after per-person costs
+net_per_registration = registration_fee - variable_cost_per_person
+
+if net_per_registration <= 0:
+    print("Break-even is impossible at this registration fee.")
+else:
+    minimum_registrations = math.ceil(
+        (fixed_costs - sponsorship) / net_per_registration
+    )
+    minimum_registrations = max(0, minimum_registrations)
+
+    print(f"Fixed costs: {fixed_costs:.2f}")
+    print(f"Variable cost per participant: {variable_cost_per_person:.2f}")
+    print(f"Sponsorship shortfall before registrations: "
+          f"{max(0, fixed_costs - sponsorship):.2f}")
+    print(f"Minimum registrations to break even: {minimum_registrations}")
+
+    total_cost = fixed_costs + minimum_registrations * variable_cost_per_person
+    total_funding = sponsorship + minimum_registrations * registration_fee
+    print(f"Total cost at break-even: {total_cost:.2f}")
+    print(f"Total funding at break-even: {total_funding:.2f}")
