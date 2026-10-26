@@ -1,0 +1,101 @@
+from dataclasses import dataclass, field
+
+
+@dataclass
+class Patient:
+    patient_id: str
+    consultations: list[float] = field(default_factory=list)
+    diagnostics: list[float] = field(default_factory=list)
+    treatments: list[float] = field(default_factory=list)
+    annual_income: float = 0.0
+    has_insurance: bool = False
+    concession_approved: bool = False
+
+
+# Example billing and concession policy
+CONSULTATION_CONCESSION_RATE = 0.10
+LOW_INCOME_LIMIT = 300_000
+LOW_INCOME_CONCESSION_RATE = 0.25
+MAX_CONCESSION_RATE = 0.50
+INSURANCE_COVERAGE_RATE = 0.60
+
+
+def validate_patient(patient: Patient) -> None:
+    if patient.annual_income < 0:
+        raise ValueError("Annual income cannot be negative.")
+
+    for category, charges in (
+        ("consultation", patient.consultations),
+        ("diagnostic", patient.diagnostics),
+        ("treatment", patient.treatments),
+    ):
+        if any(charge < 0 for charge in charges):
+            raise ValueError(f"{category.title()} charges cannot be negative.")
+
+
+def classify_patient(patient: Patient) -> str:
+    """Classify payment support according to the example policy."""
+    if patient.has_insurance:
+        return "INSURED"
+    if patient.annual_income <= LOW_INCOME_LIMIT:
+        return "LOW_INCOME_ASSISTANCE"
+    return "STANDARD"
+
+
+def calculate_bill(patient: Patient) -> dict:
+    validate_patient(patient)
+
+    consultation_total = sum(patient.consultations)
+    diagnostic_total = sum(patient.diagnostics)
+    treatment_total = sum(patient.treatments)
+    subtotal = consultation_total + diagnostic_total + treatment_total
+
+    concession_rate = 0.0
+    if patient.concession_approved:
+        concession_rate = CONSULTATION_CONCESSION_RATE
+
+        if patient.annual_income <= LOW_INCOME_LIMIT:
+            concession_rate += LOW_INCOME_CONCESSION_RATE
+
+        concession_rate = min(concession_rate, MAX_CONCESSION_RATE)
+
+    concession = subtotal * concession_rate
+    after_concession = subtotal - concession
+
+    insurance_payment = (
+        after_concession * INSURANCE_COVERAGE_RATE
+        if patient.has_insurance
+        else 0.0
+    )
+    patient_due = after_concession - insurance_payment
+
+    return {
+        "patient_id": patient.patient_id,
+        "classification": classify_patient(patient),
+        "consultations": round(consultation_total, 2),
+        "diagnostics": round(diagnostic_total, 2),
+        "treatments": round(treatment_total, 2),
+        "subtotal": round(subtotal, 2),
+        "concession": round(concession, 2),
+        "insurance_payment": round(insurance_payment, 2),
+        "patient_due": round(patient_due, 2),
+    }
+
+
+if __name__ == "__main__":
+    patient = Patient(
+        patient_id="P1001",
+        consultations=[500, 300],
+        diagnostics=[1200, 800],
+        treatments=[5000],
+        annual_income=250_000,
+        has_insurance=True,
+        concession_approved=True,
+    )
+
+    try:
+        bill = calculate_bill(patient)
+        for label, value in bill.items():
+            print(f"{label.replace('_', ' ').title()}: {value}")
+    except ValueError as error:
+        print(f"Billing error: {error}")
