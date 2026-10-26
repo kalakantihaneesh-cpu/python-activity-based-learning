@@ -1,0 +1,97 @@
+from dataclasses import dataclass
+
+
+@dataclass
+class MobilePlan:
+    name: str
+    monthly_fee: float
+    included_minutes: int
+    included_data_gb: float
+    validity_days: int
+    extra_minute_rate: float
+    extra_gb_rate: float
+
+
+def evaluate_plans(
+    plans: list[MobilePlan],
+    minutes_used: int,
+    data_used_gb: float,
+    required_validity_days: int,
+    budget: float,
+) -> tuple[list[dict], dict | None]:
+    """Return plan costs and the cheapest plan meeting usage and budget needs."""
+    if minutes_used < 0 or data_used_gb < 0:
+        raise ValueError("Usage cannot be negative.")
+    if required_validity_days <= 0 or budget < 0:
+        raise ValueError("Validity must be positive and budget cannot be negative.")
+
+    results = []
+
+    for plan in plans:
+        if min(
+            plan.monthly_fee,
+            plan.included_minutes,
+            plan.included_data_gb,
+            plan.validity_days,
+            plan.extra_minute_rate,
+            plan.extra_gb_rate,
+        ) < 0:
+            raise ValueError(f"Plan {plan.name!r} contains a negative value.")
+
+        extra_minutes = max(0, minutes_used - plan.included_minutes)
+        extra_data = max(0.0, data_used_gb - plan.included_data_gb)
+
+        excess_charges = (
+            extra_minutes * plan.extra_minute_rate
+            + extra_data * plan.extra_gb_rate
+        )
+        total_cost = plan.monthly_fee + excess_charges
+
+        eligible = (
+            plan.validity_days >= required_validity_days
+            and total_cost <= budget
+        )
+
+        results.append({
+            "plan": plan.name,
+            "monthly_fee": plan.monthly_fee,
+            "extra_minutes": extra_minutes,
+            "extra_data_gb": round(extra_data, 2),
+            "excess_charges": round(excess_charges, 2),
+            "total_cost": round(total_cost, 2),
+            "eligible": eligible,
+        })
+
+    eligible_plans = [result for result in results if result["eligible"]]
+    best_plan = min(eligible_plans, key=lambda item: item["total_cost"]) if eligible_plans else None
+
+    return results, best_plan
+
+
+if __name__ == "__main__":
+    plans = [
+        MobilePlan("Basic", 15.00, 300, 5, 30, 0.05, 2.00),
+        MobilePlan("Plus", 25.00, 800, 15, 30, 0.03, 1.00),
+        MobilePlan("Max", 35.00, 1500, 30, 60, 0.02, 0.50),
+    ]
+
+    results, best = evaluate_plans(
+        plans=plans,
+        minutes_used=950,
+        data_used_gb=18,
+        required_validity_days=30,
+        budget=40,
+    )
+
+    print("Plan comparison:")
+    for result in results:
+        status = "Eligible" if result["eligible"] else "Not eligible"
+        print(
+            f"{result['plan']}: total={result['total_cost']:.2f}, "
+            f"excess={result['excess_charges']:.2f}, {status}"
+        )
+
+    if best:
+        print(f"\nMost economical eligible plan: {best['plan']} ({best['total_cost']:.2f})")
+    else:
+        print("\nNo plan meets the validity and budget requirements.")

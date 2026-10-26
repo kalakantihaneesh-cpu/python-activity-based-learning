@@ -1,0 +1,102 @@
+from dataclasses import dataclass
+
+
+@dataclass
+class Employee:
+    employee_id: str
+    name: str
+    basic_pay: float
+    allowances: float
+    overtime_hours: float
+    overtime_rate: float
+    incentives: float
+
+
+# Example progressive income tax brackets:
+# (income up to this limit, tax rate)
+TAX_BRACKETS = [
+    (30_000, 0.05),
+    (70_000, 0.10),
+    (float("inf"), 0.20),
+]
+
+PENSION_RATE = 0.05  # 5% of basic pay
+
+
+def progressive_tax(taxable_income: float) -> float:
+    """Calculate tax progressively across the configured brackets."""
+    tax = 0.0
+    previous_limit = 0.0
+
+    for limit, rate in TAX_BRACKETS:
+        amount_in_bracket = min(taxable_income, limit - previous_limit)
+        tax += amount_in_bracket * rate
+        taxable_income -= amount_in_bracket
+        previous_limit = limit
+
+        if taxable_income <= 0:
+            break
+
+    return tax
+
+
+def create_salary_statement(employee: Employee) -> str:
+    values = [
+        employee.basic_pay,
+        employee.allowances,
+        employee.overtime_hours,
+        employee.overtime_rate,
+        employee.incentives,
+    ]
+    if any(value < 0 for value in values):
+        raise ValueError("Pay amounts, hours, and rates cannot be negative.")
+
+    overtime_pay = employee.overtime_hours * employee.overtime_rate
+    gross_salary = (
+        employee.basic_pay
+        + employee.allowances
+        + overtime_pay
+        + employee.incentives
+    )
+
+    tax = progressive_tax(gross_salary)
+    pension = employee.basic_pay * PENSION_RATE
+    total_deductions = tax + pension
+    net_salary = gross_salary - total_deductions
+
+    return f"""
+{'SALARY STATEMENT':^42}
+{'=' * 42}
+Employee ID:       {employee.employee_id}
+Employee name:     {employee.name}
+{'-' * 42}
+Basic pay:         {employee.basic_pay:>12,.2f}
+Allowances:        {employee.allowances:>12,.2f}
+Overtime pay:      {overtime_pay:>12,.2f}
+Incentives:        {employee.incentives:>12,.2f}
+Gross salary:      {gross_salary:>12,.2f}
+{'-' * 42}
+Progressive tax:   {tax:>12,.2f}
+Pension deduction: {pension:>12,.2f}
+Total deductions:  {total_deductions:>12,.2f}
+{'=' * 42}
+Net salary:        {net_salary:>12,.2f}
+{'=' * 42}
+""".strip()
+
+
+if __name__ == "__main__":
+    employee = Employee(
+        employee_id="E102",
+        name="Jordan Lee",
+        basic_pay=45_000,
+        allowances=8_000,
+        overtime_hours=10,
+        overtime_rate=250,
+        incentives=3_000,
+    )
+
+    try:
+        print(create_salary_statement(employee))
+    except ValueError as error:
+        print(f"Payroll error: {error}")

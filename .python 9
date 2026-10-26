@@ -1,0 +1,113 @@
+from dataclasses import dataclass
+
+
+@dataclass
+class Expense:
+    category: str
+    amount: float
+    currency: str
+
+
+def analyze_travel_budget(
+    expenses: list[Expense],
+    exchange_rates: dict[str, float],
+    budget: float,
+    conversion_fee_rate: float = 0.0,
+) -> dict:
+    """
+    Exchange rates mean: 1 unit of foreign currency = X units of the budget currency.
+    Example: {"EUR": 1.08, "JPY": 0.0067, "USD": 1.0}
+    """
+    if budget < 0:
+        raise ValueError("Budget cannot be negative.")
+    if conversion_fee_rate < 0:
+        raise ValueError("Conversion fee rate cannot be negative.")
+
+    category_totals: dict[str, float] = {}
+    converted_expenses = []
+
+    for expense in expenses:
+        currency = expense.currency.upper()
+
+        if expense.amount < 0:
+            raise ValueError(f"Expense for {expense.category} cannot be negative.")
+        if currency not in exchange_rates:
+            raise ValueError(f"Missing exchange rate for {currency}.")
+        if exchange_rates[currency] <= 0:
+            raise ValueError(f"Exchange rate for {currency} must be positive.")
+
+        converted = expense.amount * exchange_rates[currency]
+        fee = converted * conversion_fee_rate
+        total_in_budget_currency = converted + fee
+
+        category_totals[expense.category] = (
+            category_totals.get(expense.category, 0) + total_in_budget_currency
+        )
+        converted_expenses.append({
+            "category": expense.category,
+            "original_amount": expense.amount,
+            "currency": currency,
+            "converted_amount": round(converted, 2),
+            "conversion_fee": round(fee, 2),
+            "total": round(total_in_budget_currency, 2),
+        })
+
+    total_spending = sum(category_totals.values())
+    largest_category = (
+        max(category_totals, key=category_totals.get)
+        if category_totals else None
+    )
+
+    return {
+        "expenses": converted_expenses,
+        "category_totals": {
+            category: round(amount, 2)
+            for category, amount in category_totals.items()
+        },
+        "total_spending": round(total_spending, 2),
+        "budget": round(budget, 2),
+        "remaining_budget": round(budget - total_spending, 2),
+        "within_budget": total_spending <= budget,
+        "largest_expense_category": largest_category,
+    }
+
+
+if __name__ == "__main__":
+    # Rates convert each currency into the budget currency (USD here).
+    rates = {
+        "USD": 1.00,
+        "EUR": 1.08,
+        "JPY": 0.0067,
+    }
+
+    planned_expenses = [
+        Expense("Accommodation", 500, "EUR"),
+        Expense("Food", 25_000, "JPY"),
+        Expense("Transport", 180, "USD"),
+        Expense("Activities", 120, "EUR"),
+    ]
+
+    report = analyze_travel_budget(
+        expenses=planned_expenses,
+        exchange_rates=rates,
+        budget=1_000,
+        conversion_fee_rate=0.02,  # 2% fee on converted amounts
+    )
+
+    print("Travel budget report (USD)")
+    print("-" * 40)
+
+    for item in report["expenses"]:
+        print(
+            f"{item['category']}: {item['original_amount']:.2f} "
+            f"{item['currency']} -> {item['total']:.2f} USD "
+            f"(fee: {item['conversion_fee']:.2f})"
+        )
+
+    print("-" * 40)
+    print(f"Total spending: ${report['total_spending']:.2f}")
+    print(f"Budget:         ${report['budget']:.2f}")
+    print(f"Remaining:      ${report['remaining_budget']:.2f}")
+    print(f"Within budget:  {'Yes' if report['within_budget'] else 'No'}")
+    print(f"Largest category: {report['largest_expense_category']}")
+    

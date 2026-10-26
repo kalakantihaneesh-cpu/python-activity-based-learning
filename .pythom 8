@@ -1,0 +1,101 @@
+from dataclasses import dataclass
+
+
+@dataclass
+class ProductionOrder:
+    product_name: str
+    quantity: int
+    material_cost_per_unit: float
+    labor_hours_per_unit: float
+    labor_rate_per_hour: float
+    wastage_rate: float       # For example, 0.05 means 5% of material cost
+    machine_cost_per_hour: float
+    machine_hours_per_unit: float
+    selling_price_per_unit: float
+    profit_target_percent: float  # Target margin as a percentage of revenue
+
+
+def analyze_production(order: ProductionOrder) -> dict:
+    if order.quantity <= 0:
+        raise ValueError("Quantity must be greater than zero.")
+
+    numeric_values = [
+        order.material_cost_per_unit,
+        order.labor_hours_per_unit,
+        order.labor_rate_per_hour,
+        order.wastage_rate,
+        order.machine_cost_per_hour,
+        order.machine_hours_per_unit,
+        order.selling_price_per_unit,
+        order.profit_target_percent,
+    ]
+    if any(value < 0 for value in numeric_values):
+        raise ValueError("Costs, rates, price, and target cannot be negative.")
+
+    material_cost = order.material_cost_per_unit * order.quantity
+    wastage_cost = material_cost * order.wastage_rate
+    labor_cost = (
+        order.labor_hours_per_unit
+        * order.labor_rate_per_hour
+        * order.quantity
+    )
+    machine_cost = (
+        order.machine_cost_per_hour
+        * order.machine_hours_per_unit
+        * order.quantity
+    )
+
+    total_cost = material_cost + wastage_cost + labor_cost + machine_cost
+    revenue = order.selling_price_per_unit * order.quantity
+    profit = revenue - total_cost
+    profit_margin = (profit / revenue * 100) if revenue > 0 else 0.0
+
+    target_profit = revenue * (order.profit_target_percent / 100)
+    target_met = profit >= target_profit
+
+    return {
+        "product_name": order.product_name,
+        "quantity": order.quantity,
+        "material_cost": round(material_cost, 2),
+        "wastage_cost": round(wastage_cost, 2),
+        "labor_cost": round(labor_cost, 2),
+        "machine_cost": round(machine_cost, 2),
+        "total_cost": round(total_cost, 2),
+        "revenue": round(revenue, 2),
+        "profit": round(profit, 2),
+        "profit_margin_percent": round(profit_margin, 2),
+        "profit_target_percent": order.profit_target_percent,
+        "target_met": target_met,
+    }
+
+
+if __name__ == "__main__":
+    order = ProductionOrder(
+        product_name="Widget",
+        quantity=500,
+        material_cost_per_unit=12.00,
+        labor_hours_per_unit=0.20,
+        labor_rate_per_hour=18.00,
+        wastage_rate=0.05,
+        machine_cost_per_hour=25.00,
+        machine_hours_per_unit=0.10,
+        selling_price_per_unit=25.00,
+        profit_target_percent=20.0,
+    )
+
+    try:
+        result = analyze_production(order)
+
+        print(f"Production analysis: {result['product_name']}")
+        print(f"Quantity: {result['quantity']}")
+        print(f"Material: {result['material_cost']:.2f}")
+        print(f"Wastage: {result['wastage_cost']:.2f}")
+        print(f"Labour: {result['labor_cost']:.2f}")
+        print(f"Machine: {result['machine_cost']:.2f}")
+        print(f"Total cost: {result['total_cost']:.2f}")
+        print(f"Revenue: {result['revenue']:.2f}")
+        print(f"Profit: {result['profit']:.2f}")
+        print(f"Profit margin: {result['profit_margin_percent']:.2f}%")
+        print(f"Profit target met: {'Yes' if result['target_met'] else 'No'}")
+    except ValueError as error:
+        print(f"Input error: {error}")

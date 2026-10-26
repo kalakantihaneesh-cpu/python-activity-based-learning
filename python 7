@@ -1,0 +1,97 @@
+from dataclasses import dataclass
+
+
+@dataclass
+class Product:
+    name: str
+    category: str
+    unit_price: float
+    quantity: int
+
+
+# Example tax rates by category
+TAX_RATES = {
+    "food": 0.05,
+    "clothing": 0.12,
+    "electronics": 0.18,
+}
+
+DISCOUNT_THRESHOLD = 500.00
+DISCOUNT_RATE = 0.10
+MAX_CONCESSION = 100.00
+
+
+def create_invoice(products: list[Product]) -> dict:
+    if not products:
+        raise ValueError("Add at least one product.")
+
+    subtotal = 0.0
+    tax_total = 0.0
+    items = []
+
+    for product in products:
+        if product.unit_price < 0 or product.quantity <= 0:
+            raise ValueError(f"Invalid price or quantity for {product.name}.")
+
+        category = product.category.lower()
+        if category not in TAX_RATES:
+            raise ValueError(f"Unknown product category: {product.category}")
+
+        line_subtotal = product.unit_price * product.quantity
+        line_tax = line_subtotal * TAX_RATES[category]
+        subtotal += line_subtotal
+        tax_total += line_tax
+
+        items.append({
+            "name": product.name,
+            "category": category,
+            "unit_price": product.unit_price,
+            "quantity": product.quantity,
+            "line_subtotal": round(line_subtotal, 2),
+            "tax_rate": TAX_RATES[category],
+            "tax": round(line_tax, 2),
+        })
+
+    discount = min(subtotal * DISCOUNT_RATE, MAX_CONCESSION) if subtotal >= DISCOUNT_THRESHOLD else 0.0
+    total = subtotal + tax_total - discount
+
+    return {
+        "items": items,
+        "subtotal": round(subtotal, 2),
+        "tax_total": round(tax_total, 2),
+        "discount": round(discount, 2),
+        "total": round(total, 2),
+    }
+
+
+def print_invoice(invoice: dict) -> None:
+    print(f"{'ITEM':<20} {'QTY':>4} {'PRICE':>10} {'TAX':>8} {'TOTAL':>10}")
+    print("-" * 58)
+
+    for item in invoice["items"]:
+        line_total = item["line_subtotal"] + item["tax"]
+        print(
+            f"{item['name']:<20} {item['quantity']:>4} "
+            f"{item['unit_price']:>10.2f} {item['tax']:>8.2f} "
+            f"{line_total:>10.2f}"
+        )
+
+    print("-" * 58)
+    print(f"{'Subtotal:':>42} {invoice['subtotal']:>10.2f}")
+    print(f"{'Tax:':>42} {invoice['tax_total']:>10.2f}")
+    print(f"{'Discount:':>42} -{invoice['discount']:>9.2f}")
+    print(f"{'Amount due:':>42} {invoice['total']:>10.2f}")
+
+
+if __name__ == "__main__":
+    cart = [
+        Product("Rice", "food", 60.00, 2),
+        Product("Shirt", "clothing", 800.00, 1),
+        Product("Headphones", "electronics", 1_200.00, 1),
+    ]
+
+    try:
+        invoice = create_invoice(cart)
+        print_invoice(invoice)
+    except ValueError as error:
+        print(f"Billing error: {error}")
